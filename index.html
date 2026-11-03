@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#101827"><title>Abdullah Car Mart | Online Management</title>
+<style>
+:root{--navy:#101827;--gold:#d6ad55;--bg:#f2f4f7;--ink:#182235;--muted:#687386;--line:#e1e6ed}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Arial,sans-serif}
+header{background:var(--navy);color:#fff;padding:20px 16px;border-bottom:4px solid var(--gold)}
+.brand{font-size:22px;font-weight:800;letter-spacing:.6px}.sub{font-size:11px;color:#d2d9e4;margin-top:5px}
+main{max-width:1050px;margin:auto;padding:16px}.hidden{display:none!important}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px;box-shadow:0 3px 12px #15213a08}
+h2{font-size:17px;margin:0 0 14px}.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+button{border:0;border-radius:9px;padding:11px 14px;font-weight:700;cursor:pointer}
+.primary{background:var(--navy);color:#fff}.secondary{background:#edf0f5;color:#1b2638}.danger{background:#fff0f0;color:#a52828}
+input,select,textarea{width:100%;padding:11px;border:1px solid #d8dee8;border-radius:9px;font-size:14px;background:#fff}
+textarea{min-height:72px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px}.full{grid-column:1/-1}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.muted{color:var(--muted);font-size:12px;line-height:1.5}
+.navbtn.active{background:var(--gold);color:#161d29}
+.vehicle{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.pill{font-size:11px;padding:5px 9px;border-radius:20px;background:#e9f5ec;color:#176b36}
+#records{display:grid;gap:10px}.record{border:1px solid var(--line);border-radius:12px;padding:13px;background:#fff}
+.record strong{font-size:16px}.thumbs{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}
+.thumb{width:65px;height:55px;object-fit:cover;border-radius:7px;border:1px solid var(--line)}
+#qrOutput{text-align:center}#qrOutput canvas,#qrOutput img{margin:10px auto;max-width:100%}
+.photoGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.photoGrid img{width:100%;height:140px;object-fit:cover;border-radius:8px}
+.publicdata{line-height:1.8;font-size:14px;overflow-wrap:anywhere}.publicdata b{color:#3a4658}
+footer{text-align:center;color:#8791a1;font-size:11px;padding:18px}
+@media(max-width:600px){main{padding:10px}.grid{grid-template-columns:1fr}.full{grid-column:auto}.photoGrid{grid-template-columns:repeat(2,1fr)}.photoGrid img{height:115px}}
+</style>
+</head>
+<body>
+<header><div class="brand">ABDULLAH CAR MART</div><div class="sub">ONLINE SALE & PURCHASE MANAGEMENT SYSTEM</div></header>
+<main>
+<section id="setup" class="card">
+<h2>Connect your online database</h2>
+<p class="muted">First complete the Supabase setup in README, then paste your Project URL and anon key below. This setup is saved in this browser.</p>
+<div class="grid">
+<div class="full"><label>Supabase Project URL</label><input id="projectUrl" placeholder="https://your-project.supabase.co"></div>
+<div class="full"><label>Supabase anon / publishable key</label><textarea id="anonKey" placeholder="Paste your public anon/publishable key"></textarea></div>
+</div><div class="actions"><button class="primary" onclick="connect()">Connect</button></div><p id="setupMsg" class="muted"></p>
+</section>
+<section id="login" class="card hidden">
+<h2>Admin Login</h2><div class="grid"><div><label>Email</label><input id="email" type="email" placeholder="Admin email"></div><div><label>Password</label><input id="password" type="password" placeholder="Password"></div></div>
+<div class="actions"><button class="primary" onclick="login()">Login</button><button class="secondary" onclick="logout()">Sign out</button></div><p id="loginMsg" class="muted">Create the admin user in Supabase Dashboard → Authentication → Users.</p>
+</section>
+<section id="admin" class="hidden">
+<div class="tabs">
+<button class="navbtn active" id="navNew" onclick="showPanel('new')">Add Sale / Purchase</button>
+<button class="navbtn secondary" id="navRecords" onclick="showPanel('records')">Vehicle Records</button>
+<button class="navbtn secondary" onclick="logout()">Logout</button>
+</div>
+<section id="newPanel" class="card">
+<h2>Vehicle & Transaction Record</h2>
+<form id="vehicleForm">
+<div class="grid">
+<div><label>Transaction Type</label><select id="tx_type"><option>Purchase</option><option>Sale</option></select></div>
+<div><label>Current Status</label><select id="status"><option>Available</option><option>Sold</option><option>Reserved</option></select></div>
+<div><label>Make / Company</label><input id="make" required placeholder="Toyota"></div>
+<div><label>Model / Variant</label><input id="model" required placeholder="Corolla Altis"></div>
+<div><label>Model Year</label><input id="year" placeholder="2022"></div>
+<div><label>Color</label><input id="color" placeholder="White"></div>
+<div><label>Registration Number</label><input id="registration" placeholder="ABC-123"></div>
+<div><label>Mileage (KM)</label><input id="mileage" inputmode="numeric"></div>
+<div><label>Chassis Number</label><input id="chassis_no"></div>
+<div><label>Engine Number</label><input id="engine_no"></div>
+<div><label>Purchase Price (PKR)</label><input id="purchase_price" inputmode="decimal"></div>
+<div><label>Sale / Demand Price (PKR)</label><input id="sale_price" inputmode="decimal"></div>
+<div><label>Advance Received / Paid (PKR)</label><input id="advance" inputmode="decimal"></div>
+<div><label>Transaction Date</label><input id="transaction_date" type="date"></div>
+<div class="full"><label>Car Photos (select multiple)</label><input id="car_photos" type="file" accept="image/*" multiple></div>
+<div class="full"><label>Chassis / Engine plate photo</label><input id="chassis_photo" type="file" accept="image/*"></div>
+<div><label>Seller Name</label><input id="seller_name"></div>
+<div><label>Seller Father Name</label><input id="seller_father"></div>
+<div><label>Seller CNIC</label><input id="seller_cnic"></div>
+<div><label>Seller Phone</label><input id="seller_phone"></div>
+<div class="full"><label>Seller Address</label><textarea id="seller_address"></textarea></div>
+<div><label>Seller Photo</label><input id="seller_photo" type="file" accept="image/*"></div>
+<div><label>Buyer Name</label><input id="buyer_name"></div>
+<div><label>Buyer Father Name</label><input id="buyer_father"></div>
+<div><label>Buyer CNIC</label><input id="buyer_cnic"></div>
+<div><label>Buyer Phone</label><input id="buyer_phone"></div>
+<div class="full"><label>Buyer Address</label><textarea id="buyer_address"></textarea></div>
+<div><label>Buyer Photo</label><input id="buyer_photo" type="file" accept="image/*"></div>
+<div><label>Witness / Notes</label><textarea id="notes"></textarea></div>
+</div>
+<div class="actions"><button class="primary" type="submit" id="saveBtn">Save Record & Upload Photos</button><button class="secondary" type="reset">Clear Form</button></div>
+<p class="muted">Privacy: QR visitors can see vehicle listing details and car photos only. Buyer/seller personal details and photos remain in the admin account.</p>
+</form></section>
+<section id="recordsPanel" class="card hidden"><h2>All Vehicle Records</h2><input id="search" placeholder="Search make, model, registration, buyer or seller" oninput="renderRecords()"><div id="records" style="margin-top:12px"></div></section>
+</section>
+<section id="publicView" class="hidden"><div class="card" id="publicCard"><h2>Vehicle Verification</h2><p class="muted">Loading public vehicle record…</p></div></section>
+</main><footer>Abdullah Car Mart • Online Vehicle Records & QR Verification</footer>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+let sb=null, currentUser=null, allRecords=[];
+const $=id=>document.getElementById(id);
+const fields=['tx_type','status','make','model','year','color','registration','mileage','chassis_no','engine_no','purchase_price','sale_price','advance','transaction_date','seller_name','seller_father','seller_cnic','seller_phone','seller_address','buyer_name','buyer_father','buyer_cnic','buyer_phone','buyer_address','notes'];
+function cfg(){return {url:localStorage.getItem('abcm_url'),key:localStorage.getItem('abcm_key')}}
+async function connect(){let u=$('projectUrl').value.trim(),k=$('anonKey').value.trim();if(!u||!k){$('setupMsg').textContent='Please enter both values.';return}localStorage.setItem('abcm_url',u);localStorage.setItem('abcm_key',k);initClient();$('setupMsg').textContent='Connected to project configuration.';await checkSession()}
+function initClient(){let c=cfg();if(c.url&&c.key&&window.supabase)sb=window.supabase.createClient(c.url,c.key)}
+async function checkSession(){if(!sb)initClient();if(!sb)return;let {data}=await sb.auth.getSession();currentUser=data.session?.user||null;showState();if(currentUser)loadRecords()}
+function showState(){let id=new URLSearchParams(location.search).get('vehicle');if(id){$('setup').classList.add('hidden');$('login').classList.add('hidden');$('admin').classList.add('hidden');$('publicView').classList.remove('hidden');loadPublic(id);return}
+$('publicView').classList.add('hidden');$('setup').classList.toggle('hidden',!!sb);$('login').classList.toggle('hidden',!sb||!!currentUser);$('admin').classList.toggle('hidden',!currentUser)}
+async function login(){if(!sb)initClient();let {error}=await sb.auth.signInWithPassword({email:$('email').value,password:$('password').value});$('loginMsg').textContent=error?error.message:'Logged in.';await checkSession()}
+async function logout(){if(sb)await sb.auth.signOut();currentUser=null;showState()}
+function showPanel(p){$('newPanel').classList.toggle('hidden',p!=='new');$('recordsPanel').classList.toggle('hidden',p!=='records');$('navNew').className='navbtn '+(p==='new'?'active':'secondary');$('navRecords').className='navbtn '+(p==='records'?'active':'secondary');if(p==='records')renderRecords()}
+async function upload(file,folder){if(!file)return null;let ext=(file.name.split('.').pop()||'jpg').replace(/[^a-z0-9]/gi,'');let path=folder+'/'+crypto.randomUUID()+'.'+ext;let {error}=await sb.storage.from('vehicle-files').upload(path,file,{upsert:false,contentType:file.type||'image/jpeg'});if(error)throw error;let {data}=sb.storage.from('vehicle-files').getPublicUrl(path);return data.publicUrl}
+async function submitVehicle(e){e.preventDefault();if(!currentUser)return;let btn=$('saveBtn');btn.disabled=true;btn.textContent='Uploading…';try{
+let row={};fields.forEach(k=>row[k]=$ (k).value.trim()||null);
+row.car_photos=[];for(let f of $('car_photos').files){let u=await upload(f,'cars');if(u)row.car_photos.push(u)}
+row.chassis_photo=await upload($('chassis_photo').files[0],'chassis');
+row.seller_photo=await upload($('seller_photo').files[0],'sellers');
+row.buyer_photo=await upload($('buyer_photo').files[0],'buyers');
+row.created_by=currentUser.id;
+let {data,error}=await sb.from('vehicles').insert(row).select().single();if(error)throw error;
+alert('Record saved successfully. Vehicle QR is ready.');$('vehicleForm').reset();await loadRecords();showPanel('records');makeQR(data);
+}catch(err){alert('Could not save: '+err.message)}finally{btn.disabled=false;btn.textContent='Save Record & Upload Photos'}}
+$('vehicleForm').addEventListener('submit',submitVehicle);
+async function loadRecords(){let {data,error}=await sb.from('vehicles').select('*').order('created_at',{ascending:false});if(error){console.error(error);return}allRecords=data||[];renderRecords()}
+function renderRecords(){let q=($('search')?.value||'').toLowerCase();let arr=allRecords.filter(r=>[r.make,r.model,r.registration,r.buyer_name,r.seller_name].join(' ').toLowerCase().includes(q));$('records').innerHTML=arr.length?arr.map(r=>`<div class="record"><div class="vehicle"><div><strong>${esc(r.year)} ${esc(r.make)} ${esc(r.model)}</strong><div class="muted">${esc(r.registration)} • ${esc(r.color)} • ${esc(r.mileage)} KM</div><div class="muted">Purchase: PKR ${esc(r.purchase_price)} | Sale: PKR ${esc(r.sale_price)}</div></div><span class="pill">${esc(r.status)}</span></div><div class="thumbs">${(r.car_photos||[]).slice(0,4).map(u=>`<img class="thumb" src="${esc(u)}">`).join('')}</div><div class="actions"><button class="primary" onclick="makeQRById('${r.id}')">QR / Print</button><button class="secondary" onclick="printInvoice('${r.id}')">Print Invoice</button><button class="secondary" onclick="openPublic('${r.id}')">Open public profile</button><button class="danger" onclick="deleteRecord('${r.id}')">Delete</button></div></div>`).join(''):'<p class="muted">No records found.</p>'}
+function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function publicUrl(id){return location.origin+location.pathname+'?vehicle='+encodeURIComponent(id)}
+function makeQRById(id){let r=allRecords.find(x=>x.id===id);if(r)makeQR(r)}
+function makeQR(r){let w=window.open('','_blank');if(!w){alert('Allow popups to print QR.');return}w.document.write(`<html><head><title>Vehicle QR - Abdullah Car Mart</title></head><body style="font-family:Arial;text-align:center;padding:24px"><h2>ABDULLAH CAR MART</h2><p>${esc(r.year)} ${esc(r.make)} ${esc(r.model)}</p><div id="qr"></div><p>Scan to view vehicle record</p><p>${esc(r.registration||'')}</p><script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script><script>new QRCode(document.getElementById('qr'),{text:${JSON.stringify(publicUrl(r.id))},width:260,height:260});setTimeout(()=>window.print(),700)<\/script></body></html>`);w.document.close()}
+
+function printInvoice(id){
+ let r=allRecords.find(x=>x.id===id); if(!r)return;
+ let w=window.open('','_blank'); if(!w){alert('Allow popups to print invoice.');return}
+ let money=v=>v?('PKR '+esc(v)):'—';
+ w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Abdullah Car Mart Invoice</title><style>
+ body{font-family:Arial,sans-serif;padding:28px;color:#182235}h1{margin:0;color:#101827}small{color:#667085}.line{border-top:2px solid #d6ad55;margin:14px 0}
+ table{width:100%;border-collapse:collapse;margin-top:15px}td,th{padding:10px;border:1px solid #dce1e8;text-align:left}
+ .sign{display:flex;justify-content:space-between;margin-top:75px}.muted{color:#667085;font-size:12px}
+ @media print{button{display:none}}
+ </style></head><body><h1>ABDULLAH CAR MART</h1><small>Sale & Purchase Invoice</small><div class="line"></div>
+ <p><b>Invoice / Record ID:</b> ${esc(r.id)}<br><b>Date:</b> ${esc(r.transaction_date||r.created_at)}<br><b>Transaction:</b> ${esc(r.tx_type)}</p>
+ <h3>Vehicle Details</h3><table><tr><th>Vehicle</th><td>${esc(r.year)} ${esc(r.make)} ${esc(r.model)}</td></tr><tr><th>Registration</th><td>${esc(r.registration)}</td></tr><tr><th>Color / Mileage</th><td>${esc(r.color)} / ${esc(r.mileage)} KM</td></tr><tr><th>Chassis No.</th><td>${esc(r.chassis_no)}</td></tr><tr><th>Engine No.</th><td>${esc(r.engine_no)}</td></tr></table>
+ <h3>Parties</h3><table><tr><th>Seller</th><td>${esc(r.seller_name)}<br>${esc(r.seller_phone)}<br>${esc(r.seller_cnic)}</td></tr><tr><th>Buyer</th><td>${esc(r.buyer_name)}<br>${esc(r.buyer_phone)}<br>${esc(r.buyer_cnic)}</td></tr></table>
+ <h3>Payment Details</h3><table><tr><th>Purchase Price</th><td>${money(r.purchase_price)}</td></tr><tr><th>Sale / Demand Price</th><td>${money(r.sale_price)}</td></tr><tr><th>Advance</th><td>${money(r.advance)}</td></tr><tr><th>Status</th><td>${esc(r.status)}</td></tr></table>
+ <p><b>Notes:</b> ${esc(r.notes)}</p><div class="sign"><div>____________________<br>Seller Signature</div><div>____________________<br>Buyer Signature</div><div>____________________<br>Authorized Stamp</div></div>
+ <p class="muted">Please verify original vehicle documents and payment independently. This is a showroom record, not a government ownership certificate.</p><button onclick="window.print()">Print / Save PDF</button></body></html>`);
+ w.document.close();
+}
+
+function openPublic(id){window.open(publicUrl(id),'_blank')}
+async function deleteRecord(id){if(!confirm('Permanently delete this vehicle record?'))return;let {error}=await sb.from('vehicles').delete().eq('id',id);if(error)alert(error.message);else loadRecords()}
+async function loadPublic(id){if(!sb)initClient();if(!sb){$('publicCard').innerHTML='<h2>Vehicle Verification</h2><p>Configure this website first using the Supabase project settings on the main page.</p>';return}
+let {data:r,error}=await sb.from('vehicle_qr_public').select('*').eq('id',id).single();if(error||!r){$('publicCard').innerHTML='<h2>Record not found</h2><p>This QR may be invalid or the record is unavailable.</p>';return}
+const photo=(u,alt)=>u?`<img src="${esc(u)}" alt="${alt}">`:'';let cars=(r.car_photos||[]).map(u=>photo(u,'Vehicle photo')).join('');
+$('publicCard').innerHTML=`<h2>ABDULLAH CAR MART — Vehicle Verification</h2><h3>${esc(r.year)} ${esc(r.make)} ${esc(r.model)}</h3><span class="pill">${esc(r.status)}</span><div class="photoGrid">${cars}</div><div class="publicdata"><h3>Vehicle Details</h3><b>Registration:</b> ${esc(r.registration)}<br><b>Color:</b> ${esc(r.color)}<br><b>Mileage:</b> ${esc(r.mileage)} KM<br><b>Sale / Demand Price:</b> PKR ${esc(r.sale_price)}<br><b>Transaction:</b> ${esc(r.tx_type)} — ${esc(r.transaction_date)}<p class="muted">Buyer/seller identity details and confidential documents are protected and are not shown on public QR verification.<br>Record ID: ${esc(r.id)} • Created: ${esc(r.created_at)}</p></div>`}
+(async()=>{let params=new URLSearchParams(location.search);initClient();if(params.get('vehicle')){showState()}else if(sb){await checkSession()}else{showState();let c=cfg();if(c.url)$('projectUrl').value=c.url;if(c.key)$('anonKey').value=c.key}})();
+</script>
+</body></html>
