@@ -115,7 +115,7 @@ async function upload(file,folder){
   let ext=(file.name.split('.').pop()||'jpg').replace(/[^a-z0-9]/gi,'');
   let bucket=folder==='cars'?'vehicle-car-photos':'vehicle-private-files';
   let path=currentUser.id+'/'+folder+'/'+crypto.randomUUID()+'.'+ext;
-
+alert('Bucket: '+bucket+'\nFolder: '+path+'\nUser: '+currentUser.id);
   let {error}=await sb.storage.from(bucket).upload(path,file,{
     upsert:false,
     contentType:file.type||'image/jpeg'
