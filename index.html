@@ -153,6 +153,132 @@ function makeQRById(id){let r=allRecords.find(x=>x.id===id);if(r)makeQR(r)}
 function makeQR(r){let w=window.open('','_blank');if(!w){alert('Allow popups to print QR.');return}w.document.write(`<html><head><title>Vehicle QR - Abdullah Car Mart</title></head><body style="font-family:Arial;text-align:center;padding:24px"><h2>ABDULLAH CAR MART</h2><p>${esc(r.year)} ${esc(r.make)} ${esc(r.model)}</p><div id="qr"></div><p>Scan to view vehicle record</p><p>${esc(r.registration||'')}</p><script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script><script>new QRCode(document.getElementById('qr'),{text:${JSON.stringify(publicUrl(r.id))},width:260,height:260});setTimeout(()=>window.print(),700)<\/script></body></html>`);w.document.close()}
 
 function printInvoice(id){
+
+  const r=allRecords.find(x=>x.id===id);
+
+  if(!r){
+    alert('Vehicle record not found');
+    return;
+  }
+
+  const w=window.open('','_blank');
+
+  if(!w){
+    alert('Please allow pop-ups');
+    return;
+  }
+
+  const photos=Array.isArray(r.car_photos)?r.car_photos:[];
+
+  const photoHTML=photos.length
+    ? photos.map(u=>`<img src="${esc(u)}">`).join('')
+    : '<p>No vehicle photos available</p>';
+
+  w.document.write(`
+  <!DOCTYPE html>
+  <html>
+  <head>
+  <meta charset="UTF-8">
+  <title>Abdullah Car Mart Invoice</title>
+
+  <style>
+  *{box-sizing:border-box}
+  body{font-family:Arial,sans-serif;margin:25px;color:#182235}
+  .header{background:#101827;color:white;text-align:center;padding:22px;border-bottom:5px solid #d6ad55}
+  .header h1{color:#d6ad55;margin:0;font-size:28px}
+  .header p{margin:7px}
+  h3{background:#101827;color:#d6ad55;padding:10px;margin:20px 0 0}
+  table{width:100%;border-collapse:collapse;margin-bottom:12px}
+  td{border:1px solid #ddd;padding:10px;font-size:13px}
+  td:first-child{width:35%;font-weight:bold;background:#f3f4f6}
+  .photos{display:flex;flex-wrap:wrap;gap:10px;padding:12px}
+  .photos img{width:48%;height:190px;object-fit:contain;border:1px solid #ddd}
+  .sign{display:flex;justify-content:space-between;margin-top:75px}
+  .sign div{width:40%;border-top:1px solid #333;text-align:center;padding-top:10px}
+  .footer{text-align:center;margin-top:30px;padding:15px;border-top:3px solid #d6ad55;font-size:12px}
+  .print{text-align:center;margin:20px}
+  button{background:#101827;color:white;padding:12px 25px;border:0;border-radius:6px;font-weight:bold}
+  @media print{
+    body{margin:10mm}
+    .print{display:none}
+  }
+  </style>
+  </head>
+
+  <body>
+
+  <div class="header">
+    <h1>ABDULLAH CAR MART</h1>
+    <p>VEHICLE SALE & PURCHASE AGREEMENT</p>
+    <p>Invoice Date: ${esc(r.transaction_date)}</p>
+  </div>
+
+  <h3>VEHICLE DETAILS</h3>
+  <table>
+    <tr><td>Transaction Type</td><td>${esc(r.tx_type)}</td></tr>
+    <tr><td>Vehicle</td><td>${esc(r.make)} ${esc(r.model)}</td></tr>
+    <tr><td>Model Year</td><td>${esc(r.year)}</td></tr>
+    <tr><td>Color</td><td>${esc(r.color)}</td></tr>
+    <tr><td>Registration</td><td>${esc(r.registration)}</td></tr>
+    <tr><td>Mileage</td><td>${esc(r.mileage)} KM</td></tr>
+    <tr><td>Chassis Number</td><td>${esc(r.chassis_no)}</td></tr>
+    <tr><td>Engine Number</td><td>${esc(r.engine_no)}</td></tr>
+    <tr><td>Status</td><td>${esc(r.status)}</td></tr>
+  </table>
+
+  <h3>PAYMENT DETAILS</h3>
+  <table>
+    <tr><td>Purchase Price</td><td>PKR ${esc(r.purchase_price)}</td></tr>
+    <tr><td>Sale / Demand Price</td><td>PKR ${esc(r.sale_price)}</td></tr>
+    <tr><td>Advance Paid / Received</td><td>PKR ${esc(r.advance)}</td></tr>
+  </table>
+
+  <h3>SELLER DETAILS</h3>
+  <table>
+    <tr><td>Name</td><td>${esc(r.seller_name)}</td></tr>
+    <tr><td>Father Name</td><td>${esc(r.seller_father)}</td></tr>
+    <tr><td>CNIC</td><td>${esc(r.seller_cnic)}</td></tr>
+    <tr><td>Phone</td><td>${esc(r.seller_phone)}</td></tr>
+    <tr><td>Address</td><td>${esc(r.seller_address)}</td></tr>
+  </table>
+
+  <h3>BUYER DETAILS</h3>
+  <table>
+    <tr><td>Name</td><td>${esc(r.buyer_name)}</td></tr>
+    <tr><td>Father Name</td><td>${esc(r.buyer_father)}</td></tr>
+    <tr><td>CNIC</td><td>${esc(r.buyer_cnic)}</td></tr>
+    <tr><td>Phone</td><td>${esc(r.buyer_phone)}</td></tr>
+    <tr><td>Address</td><td>${esc(r.buyer_address)}</td></tr>
+  </table>
+
+  <h3>VEHICLE PHOTOGRAPHS</h3>
+  <div class="photos">${photoHTML}</div>
+
+  <h3>WITNESS / NOTES</h3>
+  <table>
+    <tr><td>${esc(r.notes||'N/A')}</td></tr>
+  </table>
+
+  <div class="sign">
+    <div>Seller Signature</div>
+    <div>Buyer Signature</div>
+  </div>
+
+  <div class="footer">
+    ABDULLAH CAR MART<br>
+    Vehicle Sale & Purchase Record
+  </div>
+
+  <div class="print">
+    <button onclick="window.print()">PRINT INVOICE</button>
+  </div>
+
+  </body>
+  </html>
+  `);
+
+  w.document.close();
+}
  
 }
 
