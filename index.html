@@ -107,7 +107,29 @@ $('publicView').classList.add('hidden');$('setup').classList.toggle('hidden',!!s
 async function login(){if(!sb)initClient();let {error}=await sb.auth.signInWithPassword({email:$('email').value,password:$('password').value});$('loginMsg').textContent=error?error.message:'Logged in.';await checkSession()}
 async function logout(){if(sb)await sb.auth.signOut();currentUser=null;showState()}
 function showPanel(p){$('newPanel').classList.toggle('hidden',p!=='new');$('recordsPanel').classList.toggle('hidden',p!=='records');$('navNew').className='navbtn '+(p==='new'?'active':'secondary');$('navRecords').className='navbtn '+(p==='records'?'active':'secondary');if(p==='records')renderRecords()}
-async function upload(file,folder){if(!file)return null;let ext=(file.name.split('.').pop()||'jpg').replace(/[^a-z0-9]/gi,'');let path=folder+'/'+crypto.randomUUID()+'.'+ext;let {error}=await sb.storage.from('vehicle-files').upload(path,file,{upsert:false,contentType:file.type||'image/jpeg'});if(error)throw error;let {data}=sb.storage.from('vehicle-files').getPublicUrl(path);return data.publicUrl}
+async function upload(file,folder){
+  if(!file)return null;
+
+  if(!currentUser)throw new Error('Admin login required');
+
+  let ext=(file.name.split('.').pop()||'jpg').replace(/[^a-z0-9]/gi,'');
+  let bucket=folder==='cars'?'vehicle-car-photos':'vehicle-private-files';
+  let path=currentUser.id+'/'+folder+'/'+crypto.randomUUID()+'.'+ext;
+
+  let {error}=await sb.storage.from(bucket).upload(path,file,{
+    upsert:false,
+    contentType:file.type||'image/jpeg'
+  });
+
+  if(error)throw error;
+
+  if(folder==='cars'){
+    let {data}=sb.storage.from(bucket).getPublicUrl(path);
+    return data.publicUrl;
+  }
+
+  return path;
+}
 async function submitVehicle(e){e.preventDefault();if(!currentUser)return;let btn=$('saveBtn');btn.disabled=true;btn.textContent='Uploading…';try{
 let row={};fields.forEach(k=>row[k]=$ (k).value.trim()||null);
 row.car_photos=[];for(let f of $('car_photos').files){let u=await upload(f,'cars');if(u)row.car_photos.push(u)}
