@@ -138,6 +138,8 @@ row.seller_photo=await upload($('seller_photo').files[0],'sellers');
 row.buyer_photo=await upload($('buyer_photo').files[0],'buyers');
 const {data:{user},error:authError}=await sb.auth.getUser();
 if(authError) throw authError
+if(!user) throw new Error('Admin login session missing');
+row.created_by=user.id;
 let {data,error}=await sb.from('vehicles').insert(row).select().single();
 if(error)throw new Error('DATABASE SAVE FAILED: '+error.message);
 alert('Record saved successfully. Vehicle QR is ready.');$('vehicleForm').reset();await loadRecords();showPanel('records');makeQR(data);
