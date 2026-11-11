@@ -280,8 +280,6 @@ function printInvoice(id){
   w.document.close();
 }
  
-}
-
 function openPublic(id){window.open(publicUrl(id),'_blank')}
 async function deleteRecord(id){if(!confirm('Permanently delete this vehicle record?'))return;let {error}=await sb.from('vehicles').delete().eq('id',id);if(error)alert(error.message);else loadRecords()}
 async function loadPublic(id){if(!sb)initClient();if(!sb){$('publicCard').innerHTML='<h2>Vehicle Verification</h2><p>Configure this website first using the Supabase project settings on the main page.</p>';return}
