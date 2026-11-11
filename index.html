@@ -344,63 +344,6 @@ new QRCode(document.getElementById('qr'),{
 
   const w=window.open('','_blank');
 
-  if(!w){
-    alert('Please allow pop-ups');
-    return;
-  }
-
-  const photos=Array.isArray(r.car_photos)?r.car_photos:[];
-
-  const photoHTML=photos.length
-    ? photos.map(u=>`<img src="${esc(u)}">`).join('')
-    : '<p>No vehicle photos available</p>';
-
-  w.document.write(`
-  <!DOCTYPE html>
-  <html>
-  <head>
-  <meta charset="UTF-8">
-  <title>Abdullah Car Mart Invoice</title>
-
-  <style>
-  *{box-sizing:border-box}
-  body{font-family:Arial,sans-serif;margin:25px;color:#182235}
-  .header{background:#101827;color:white;text-align:center;padding:22px;border-bottom:5px solid #d6ad55}
-  .header h1{color:#d6ad55;margin:0;font-size:28px}
-  .header p{margin:7px}
-  h3{background:#101827;color:#d6ad55;padding:10px;margin:20px 0 0}
-  table{width:100%;border-collapse:collapse;margin-bottom:12px}
-  td{border:1px solid #ddd;padding:10px;font-size:13px}
-  td:first-child{width:35%;font-weight:bold;background:#f3f4f6}
-  .photos{display:flex;flex-wrap:wrap;gap:10px;padding:12px}
-  .photos img{width:48%;height:190px;object-fit:contain;border:1px solid #ddd}
-  .sign{display:flex;justify-content:space-between;margin-top:75px}
-  .sign div{width:40%;border-top:1px solid #333;text-align:center;padding-top:10px}
-  .footer{text-align:center;margin-top:30px;padding:15px;border-top:3px solid #d6ad55;font-size:12px}
-  .print{text-align:center;margin:20px}
-  button{background:#101827;color:white;padding:12px 25px;border:0;border-radius:6px;font-weight:bold}
-  @media print{
-    body{margin:10mm}
-    .print{display:none}
-  }
-  </style>
-  </head>
-
-  <body>
-
-  <div class="header">
-    <h1>ABDULLAH CAR MART</h1>
-    <p>VEHICLE SALE & PURCHASE AGREEMENT</p>
-    <p>Invoice Date: ${esc(r.transaction_date)}</p>
-  </div>
-
-  <h3>VEHICLE DETAILS</h3>
-  <table>
-    <tr><td>Transaction Type</td><td>${esc(r.tx_type)}</td></tr>
-    <tr><td>Vehicle</td><td>${esc(r.make)} ${esc(r.model)}</td></tr>
-    <tr><td>Model Year</td><td>${esc(r.year)}</td></tr>
-    <tr><td>Color</td><td>${esc(r.color)}</td></tr>
-
 }
  
 function openPublic(id){window.open(publicUrl(id),'_blank')}
