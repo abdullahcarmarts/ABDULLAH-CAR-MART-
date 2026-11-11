@@ -77,6 +77,10 @@ footer{text-align:center;color:#8791a1;font-size:11px;padding:18px}
 <div><label>Seller Phone</label><input id="seller_phone"></div>
 <div class="full"><label>Seller Address</label><textarea id="seller_address"></textarea></div>
 <div><label>Seller Photo</label><input id="seller_photo" type="file" accept="image/*"></div>
+  <div><label>Seller CNIC Front</label><input id="seller_cnic_front" type="file" accept="image/*"></div>
+<div><label>Seller CNIC Back</label><input id="seller_cnic_back" type="file" accept="image/*"></div>
+<div><label>Buyer CNIC Front</label><input id="buyer_cnic_front" type="file" accept="image/*"></div>
+<div><label>Buyer CNIC Back</label><input id="buyer_cnic_back" type="file" accept="image/*"></div>
 <div><label>Buyer Name</label><input id="buyer_name"></div>
 <div><label>Buyer Father Name</label><input id="buyer_father"></div>
 <div><label>Buyer CNIC</label><input id="buyer_cnic"></div>
@@ -109,6 +113,23 @@ async function logout(){if(sb)await sb.auth.signOut();currentUser=null;showState
 function showPanel(p){$('newPanel').classList.toggle('hidden',p!=='new');$('recordsPanel').classList.toggle('hidden',p!=='records');$('navNew').className='navbtn '+(p==='new'?'active':'secondary');$('navRecords').className='navbtn '+(p==='records'?'active':'secondary');if(p==='records')renderRecords()}
 async function upload(file,folder){
   if(!file)return null;
+  if(!currentUser)throw new Error('Admin login required');
+
+  let ext=(file.name.split('.').pop()||'jpg').replace(/[^a-z0-9]/gi,'');
+  let bucket='vehicle-car-photos';
+  let path=currentUser.id+'/'+folder+'/'+crypto.randomUUID()+'.'+ext;
+
+  let {error}=await sb.storage.from(bucket).upload(path,file,{
+    upsert:false,
+    contentType:file.type||'image/jpeg'
+  });
+
+  if(error)throw new Error('PHOTO UPLOAD FAILED: '+error.message);
+
+  let {data}=sb.storage.from(bucket).getPublicUrl(path);
+  return data.publicUrl;
+}
+  if(!file)return null;
 
   if(!currentUser)throw new Error('Admin login required');
 
@@ -136,6 +157,10 @@ row.car_photos=[];for(let f of $('car_photos').files){let u=await upload(f,'cars
 row.chassis_photo=await upload($('chassis_photo').files[0],'chassis');
 row.seller_photo=await upload($('seller_photo').files[0],'sellers');
 row.buyer_photo=await upload($('buyer_photo').files[0],'buyers');
+row.seller_cnic_front=await upload($('seller_cnic_front').files[0],'seller-cnic-front');
+row.seller_cnic_back=await upload($('seller_cnic_back').files[0],'seller-cnic-back');
+row.buyer_cnic_front=await upload($('buyer_cnic_front').files[0],'buyer-cnic-front');
+row.buyer_cnic_back=await upload($('buyer_cnic_back').files[0],'buyer-cnic-back');
 const {data:{user},error:authError}=await sb.auth.getUser();
 if(authError) throw authError
 if(!user) throw new Error('Admin login session missing');
@@ -152,7 +177,184 @@ function publicUrl(id){return location.origin+location.pathname+'?vehicle='+enco
 function makeQRById(id){let r=allRecords.find(x=>x.id===id);if(r)makeQR(r)}
 function makeQR(r){let w=window.open('','_blank');if(!w){alert('Allow popups to print QR.');return}w.document.write(`<html><head><title>Vehicle QR - Abdullah Car Mart</title></head><body style="font-family:Arial;text-align:center;padding:24px"><h2>ABDULLAH CAR MART</h2><p>${esc(r.year)} ${esc(r.make)} ${esc(r.model)}</p><div id="qr"></div><p>Scan to view vehicle record</p><p>${esc(r.registration||'')}</p><script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script><script>new QRCode(document.getElementById('qr'),{text:${JSON.stringify(publicUrl(r.id))},width:260,height:260});setTimeout(()=>window.print(),700)<\/script></body></html>`);w.document.close()}
 
-function printInvoice(id){
+
+async function printInvoice(id){
+  const r=allRecords.find(x=>x.id===id);
+  if(!r){alert('Vehicle record not found');return}
+
+  const w=window.open('','_blank');
+  if(!w){alert('Please allow pop-ups');return}
+
+  w.document.write('<p>Preparing invoice...</p>');
+
+  async function photoUrl(v){
+    if(!v)return '';
+    if(/^https?:\/\//i.test(v))return v;
+    const {data,error}=await sb.storage.from('vehicle-private-files').createSignedUrl(v,300);
+    return error?'':(data?.signedUrl||'');
+  }
+
+  try{
+    const [
+      sellerPhoto,buyerPhoto,chassisPhoto,
+      sellerFront,sellerBack,buyerFront,buyerBack
+    ]=await Promise.all([
+      photoUrl(r.seller_photo),
+      photoUrl(r.buyer_photo),
+      photoUrl(r.chassis_photo),
+      photoUrl(r.seller_cnic_front),
+      photoUrl(r.seller_cnic_back),
+      photoUrl(r.buyer_cnic_front),
+      photoUrl(r.buyer_cnic_back)
+    ]);
+
+    const cars=(Array.isArray(r.car_photos)?r.car_photos:[]).slice(0,2);
+
+    const pic=(url,label)=>url?
+      `<div class="pic"><img src="${esc(url)}"><small>${label}</small></div>`:'';
+
+    const carHTML=cars.map((u,i)=>pic(u,'Vehicle '+(i+1))).join('');
+
+    w.document.open();
+    w.document.write(`
+<!doctype html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Abdullah Car Mart Invoice</title>
+<style>
+*{box-sizing:border-box}
+@page{size:A4 portrait;margin:5mm}
+body{font-family:Arial,sans-serif;color:#182235;margin:0;font-size:8px}
+.header{background:#101827;color:white;padding:8px 12px;border-bottom:3px solid #d6ad55;display:flex;justify-content:space-between;align-items:center}
+.header h1{font-size:19px;color:#d6ad55;margin:0 0 3px}
+.header p{margin:2px 0;font-size:8px}
+#qr{background:white;padding:3px;width:75px;height:75px}
+#qr img,#qr canvas{width:68px!important;height:68px!important}
+.layout{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
+.section{border:1px solid #d9dee6;border-radius:4px;overflow:hidden;break-inside:avoid}
+h3{background:#101827;color:#d6ad55;margin:0;padding:4px 6px;font-size:9px}
+table{width:100%;border-collapse:collapse}
+td{border-bottom:1px solid #e5e8ed;padding:3px 5px;font-size:8px;overflow-wrap:anywhere}
+td:first-child{width:38%;font-weight:bold;background:#f4f5f7}
+.pics{display:flex;flex-wrap:wrap;gap:4px;padding:5px}
+.pic{width:48px;text-align:center}
+.pic img{width:46px;height:42px;object-fit:contain;border:1px solid #bbb;border-radius:2px}
+.pic small{display:block;font-size:6px;margin-top:2px}
+.wide{grid-column:1/-1}
+.sign{display:flex;justify-content:space-between;padding:12px 15px 5px}
+.sign div{width:38%;border-top:1px solid #333;text-align:center;padding-top:4px;font-size:8px}
+.footer{text-align:center;border-top:2px solid #d6ad55;padding:5px;margin-top:5px;font-size:7px}
+.print{text-align:center;padding:8px}
+button{background:#101827;color:white;border:0;border-radius:5px;padding:8px 20px;font-weight:bold}
+@media print{
+.print{display:none}
+body{print-color-adjust:exact;-webkit-print-color-adjust:exact}
+}
+</style>
+</head>
+<body>
+<div class="header">
+ <div>
+  <h1>ABDULLAH CAR MART</h1>
+  <p>VEHICLE SALE & PURCHASE INVOICE</p>
+  <p>Date: ${esc(r.transaction_date)} | Record: ${esc(r.id)}</p>
+ </div>
+ <div id="qr"></div>
+</div>
+
+<div class="layout">
+ <div class="section">
+  <h3>VEHICLE DETAILS</h3>
+  <table>
+   <tr><td>Transaction</td><td>${esc(r.tx_type)}</td></tr>
+   <tr><td>Vehicle</td><td>${esc(r.year)} ${esc(r.make)} ${esc(r.model)}</td></tr>
+   <tr><td>Color</td><td>${esc(r.color)}</td></tr>
+   <tr><td>Registration</td><td>${esc(r.registration)}</td></tr>
+   <tr><td>Mileage</td><td>${esc(r.mileage)} KM</td></tr>
+   <tr><td>Chassis No.</td><td>${esc(r.chassis_no)}</td></tr>
+   <tr><td>Engine No.</td><td>${esc(r.engine_no)}</td></tr>
+   <tr><td>Status</td><td>${esc(r.status)}</td></tr>
+  </table>
+ </div>
+
+ <div class="section">
+  <h3>PAYMENT DETAILS</h3>
+  <table>
+   <tr><td>Purchase Price</td><td>PKR ${esc(r.purchase_price)}</td></tr>
+   <tr><td>Sale / Demand</td><td>PKR ${esc(r.sale_price)}</td></tr>
+   <tr><td>Advance</td><td>PKR ${esc(r.advance)}</td></tr>
+  </table>
+  <h3>CHASSIS / ENGINE PHOTO</h3>
+  <div class="pics">${pic(chassisPhoto,'Chassis / Engine')}</div>
+ </div>
+
+ <div class="section">
+  <h3>SELLER DETAILS</h3>
+  <table>
+   <tr><td>Name</td><td>${esc(r.seller_name)}</td></tr>
+   <tr><td>Father</td><td>${esc(r.seller_father)}</td></tr>
+   <tr><td>CNIC</td><td>${esc(r.seller_cnic)}</td></tr>
+   <tr><td>Phone</td><td>${esc(r.seller_phone)}</td></tr>
+   <tr><td>Address</td><td>${esc(r.seller_address)}</td></tr>
+  </table>
+  <div class="pics">
+   ${pic(sellerPhoto,'Seller Photo')}
+   ${pic(sellerFront,'CNIC Front')}
+   ${pic(sellerBack,'CNIC Back')}
+  </div>
+ </div>
+
+ <div class="section">
+  <h3>BUYER DETAILS</h3>
+  <table>
+   <tr><td>Name</td><td>${esc(r.buyer_name)}</td></tr>
+   <tr><td>Father</td><td>${esc(r.buyer_father)}</td></tr>
+   <tr><td>CNIC</td><td>${esc(r.buyer_cnic)}</td></tr>
+   <tr><td>Phone</td><td>${esc(r.buyer_phone)}</td></tr>
+   <tr><td>Address</td><td>${esc(r.buyer_address)}</td></tr>
+  </table>
+  <div class="pics">
+   ${pic(buyerPhoto,'Buyer Photo')}
+   ${pic(buyerFront,'CNIC Front')}
+   ${pic(buyerBack,'CNIC Back')}
+  </div>
+ </div>
+
+ <div class="section wide">
+  <h3>VEHICLE PHOTOGRAPHS</h3>
+  <div class="pics">${carHTML||'No vehicle photos'}</div>
+ </div>
+
+ <div class="section wide">
+  <h3>WITNESS / NOTES</h3>
+  <div style="padding:5px">${esc(r.notes||'N/A')}</div>
+ </div>
+</div>
+
+<div class="sign">
+ <div>Seller Signature</div>
+ <div>Buyer Signature</div>
+</div>
+<div class="footer">ABDULLAH CAR MART • Vehicle Sale & Purchase Record • Scan QR to verify record</div>
+<div class="print"><button onclick="window.print()">PRINT INVOICE</button></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
+<script>
+new QRCode(document.getElementById('qr'),{
+ text:${JSON.stringify(publicUrl(r.id))},
+ width:68,height:68
+});
+<\/script>
+</body>
+</html>
+    `);
+    w.document.close();
+  }catch(err){
+    w.document.body.innerHTML='<p>Invoice photo error: '+esc(err.message)+'</p>';
+  }
+}
+
 
   const r=allRecords.find(x=>x.id===id);
 
@@ -282,10 +484,76 @@ function printInvoice(id){
  
 function openPublic(id){window.open(publicUrl(id),'_blank')}
 async function deleteRecord(id){if(!confirm('Permanently delete this vehicle record?'))return;let {error}=await sb.from('vehicles').delete().eq('id',id);if(error)alert(error.message);else loadRecords()}
-async function loadPublic(id){if(!sb)initClient();if(!sb){$('publicCard').innerHTML='<h2>Vehicle Verification</h2><p>Configure this website first using the Supabase project settings on the main page.</p>';return}
-let {data:r,error}=await sb.from('vehicle_qr_public').select('*').eq('id',id).single();if(error||!r){$('publicCard').innerHTML='<h2>Record not found</h2><p>This QR may be invalid or the record is unavailable.</p>';return}
-const photo=(u,alt)=>u?`<img src="${esc(u)}" alt="${alt}">`:'';let cars=(r.car_photos||[]).map(u=>photo(u,'Vehicle photo')).join('');
-$('publicCard').innerHTML=`<h2>ABDULLAH CAR MART — Vehicle Verification</h2><h3>${esc(r.year)} ${esc(r.make)} ${esc(r.model)}</h3><span class="pill">${esc(r.status)}</span><div class="photoGrid">${cars}</div><div class="publicdata"><h3>Vehicle Details</h3><b>Registration:</b> ${esc(r.registration)}<br><b>Color:</b> ${esc(r.color)}<br><b>Mileage:</b> ${esc(r.mileage)} KM<br><b>Sale / Demand Price:</b> PKR ${esc(r.sale_price)}<br><b>Transaction:</b> ${esc(r.tx_type)} — ${esc(r.transaction_date)}<p class="muted">Buyer/seller identity details and confidential documents are protected and are not shown on public QR verification.<br>Record ID: ${esc(r.id)} • Created: ${esc(r.created_at)}</p></div>`}
+function openPublic(id){
+  window.open(publicUrl(id),'_blank');
+}
+
+async function deleteRecord(id){
+  if(!confirm('Permanently delete this vehicle record?'))return;
+  let {error}=await sb.from('vehicles').delete().eq('id',id);
+  if(error)alert(error.message);
+  else loadRecords();
+}
+
+async function loadPublic(id){
+  if(!sb)initClient();
+
+  if(!sb){
+    $('publicCard').innerHTML='<h2>Vehicle Verification</h2><p>Database configuration required.</p>';
+    return;
+  }
+
+  let {data:r,error}=await sb.from('vehicle_qr_public').select('*').eq('id',id).single();
+
+  if(error||!r){
+    $('publicCard').innerHTML='<h2>Record not found</h2><p>This QR may be invalid or unavailable.</p>';
+    return;
+  }
+
+  const photo=(u,alt)=>u?
+    `<img src="${esc(u)}" alt="${alt}" loading="lazy">`:'';
+
+  const cars=(r.car_photos||[]).map(u=>photo(u,'Vehicle photo')).join('');
+
+  $('publicCard').innerHTML=`
+    <h2>ABDULLAH CAR MART — Vehicle Verification</h2>
+    <h3>${esc(r.year)} ${esc(r.make)} ${esc(r.model)}</h3>
+    <span class="pill">${esc(r.status)}</span>
+
+    <h3>VEHICLE PHOTOS</h3>
+    <div class="photoGrid">${cars||'No vehicle photos'}</div>
+
+    <div class="publicdata">
+      <h3>VEHICLE DETAILS</h3>
+      <b>Registration:</b> ${esc(r.registration)}<br>
+      <b>Color:</b> ${esc(r.color)}<br>
+      <b>Mileage:</b> ${esc(r.mileage)} KM<br>
+      <b>Sale / Demand Price:</b> PKR ${esc(r.sale_price)}<br>
+      <b>Transaction:</b> ${esc(r.tx_type)} — ${esc(r.transaction_date)}
+    </div>
+
+    <h3>SELLER INFORMATION</h3>
+    <p><b>Name:</b> ${esc(r.seller_name)}</p>
+    <div class="photoGrid">
+      ${photo(r.seller_photo,'Seller photo')}
+      ${photo(r.seller_cnic_front,'Seller CNIC Front')}
+      ${photo(r.seller_cnic_back,'Seller CNIC Back')}
+    </div>
+
+    <h3>BUYER INFORMATION</h3>
+    <p><b>Name:</b> ${esc(r.buyer_name)}</p>
+    <div class="photoGrid">
+      ${photo(r.buyer_photo,'Buyer photo')}
+      ${photo(r.buyer_cnic_front,'Buyer CNIC Front')}
+      ${photo(r.buyer_cnic_back,'Buyer CNIC Back')}
+    </div>
+
+    <p class="muted">
+      Public QR verification record. Personal ID images are publicly visible as requested.<br>
+      Record ID: ${esc(r.id)} • Created: ${esc(r.created_at)}
+    </p>
+  `;
+}
 (async()=>{let params=new URLSearchParams(location.search);initClient();if(params.get('vehicle')){showState()}else if(sb){await checkSession()}else{showState();let c=cfg();if(c.url)$('projectUrl').value=c.url;if(c.key)$('anonKey').value=c.key}})();
 </script>
 </body></html>
