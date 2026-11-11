@@ -129,28 +129,7 @@ async function upload(file,folder){
   let {data}=sb.storage.from(bucket).getPublicUrl(path);
   return data.publicUrl;
 }
-  if(!file)return null;
-
-  if(!currentUser)throw new Error('Admin login required');
-
-  let ext=(file.name.split('.').pop()||'jpg').replace(/[^a-z0-9]/gi,'');
-  let bucket=folder==='cars'?'vehicle-car-photos':'vehicle-private-files';
-  let path=currentUser.id+'/'+folder+'/'+crypto.randomUUID()+'.'+ext;
-alert('Bucket: '+bucket+'\nFolder: '+path+'\nUser: '+currentUser.id);
-  let {error}=await sb.storage.from(bucket).upload(path,file,{
-    upsert:false,
-    contentType:file.type||'image/jpeg'
-  });
-
-  if(error)throw new Error('PHOTO UPLOAD FAILED: '+error.message);
-
-  if(folder==='cars'){
-    let {data}=sb.storage.from(bucket).getPublicUrl(path);
-    return data.publicUrl;
-  }
-
-  return path;
-}
+  
 async function submitVehicle(e){e.preventDefault();if(!currentUser)return;let btn=$('saveBtn');btn.disabled=true;btn.textContent='Uploading…';try{
 let row={};fields.forEach(k=>row[k]=$ (k).value.trim()||null);
 row.car_photos=[];for(let f of $('car_photos').files){let u=await upload(f,'cars');if(u)row.car_photos.push(u)}
@@ -421,65 +400,7 @@ new QRCode(document.getElementById('qr'),{
     <tr><td>Vehicle</td><td>${esc(r.make)} ${esc(r.model)}</td></tr>
     <tr><td>Model Year</td><td>${esc(r.year)}</td></tr>
     <tr><td>Color</td><td>${esc(r.color)}</td></tr>
-    <tr><td>Registration</td><td>${esc(r.registration)}</td></tr>
-    <tr><td>Mileage</td><td>${esc(r.mileage)} KM</td></tr>
-    <tr><td>Chassis Number</td><td>${esc(r.chassis_no)}</td></tr>
-    <tr><td>Engine Number</td><td>${esc(r.engine_no)}</td></tr>
-    <tr><td>Status</td><td>${esc(r.status)}</td></tr>
-  </table>
 
-  <h3>PAYMENT DETAILS</h3>
-  <table>
-    <tr><td>Purchase Price</td><td>PKR ${esc(r.purchase_price)}</td></tr>
-    <tr><td>Sale / Demand Price</td><td>PKR ${esc(r.sale_price)}</td></tr>
-    <tr><td>Advance Paid / Received</td><td>PKR ${esc(r.advance)}</td></tr>
-  </table>
-
-  <h3>SELLER DETAILS</h3>
-  <table>
-    <tr><td>Name</td><td>${esc(r.seller_name)}</td></tr>
-    <tr><td>Father Name</td><td>${esc(r.seller_father)}</td></tr>
-    <tr><td>CNIC</td><td>${esc(r.seller_cnic)}</td></tr>
-    <tr><td>Phone</td><td>${esc(r.seller_phone)}</td></tr>
-    <tr><td>Address</td><td>${esc(r.seller_address)}</td></tr>
-  </table>
-
-  <h3>BUYER DETAILS</h3>
-  <table>
-    <tr><td>Name</td><td>${esc(r.buyer_name)}</td></tr>
-    <tr><td>Father Name</td><td>${esc(r.buyer_father)}</td></tr>
-    <tr><td>CNIC</td><td>${esc(r.buyer_cnic)}</td></tr>
-    <tr><td>Phone</td><td>${esc(r.buyer_phone)}</td></tr>
-    <tr><td>Address</td><td>${esc(r.buyer_address)}</td></tr>
-  </table>
-
-  <h3>VEHICLE PHOTOGRAPHS</h3>
-  <div class="photos">${photoHTML}</div>
-
-  <h3>WITNESS / NOTES</h3>
-  <table>
-    <tr><td>${esc(r.notes||'N/A')}</td></tr>
-  </table>
-
-  <div class="sign">
-    <div>Seller Signature</div>
-    <div>Buyer Signature</div>
-  </div>
-
-  <div class="footer">
-    ABDULLAH CAR MART<br>
-    Vehicle Sale & Purchase Record
-  </div>
-
-  <div class="print">
-    <button onclick="window.print()">PRINT INVOICE</button>
-  </div>
-
-  </body>
-  </html>
-  `);
-
-  w.document.close();
 }
  
 function openPublic(id){window.open(publicUrl(id),'_blank')}
