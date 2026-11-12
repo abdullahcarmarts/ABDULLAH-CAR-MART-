@@ -408,66 +408,237 @@ function makeQR(r){
 async function printInvoice(id){
  const r=allRecords.find(x=>x.id===id);
  if(!r){alert('Vehicle record not found');return;}
+
  const w=window.open('','_blank');
  if(!w){alert('Please allow pop-ups');return;}
+
  w.document.write('<p style="font-family:Arial">Preparing invoice...</p>');
 
  async function photoUrl(v){
   if(!v)return '';
   if(/^https?:\/\//i.test(v))return v;
+
   const {data,error}=await sb.storage.from('vehicle-private-files').createSignedUrl(v,300);
   return error?'':(data?.signedUrl||'');
  }
 
  try{
   const [sellerPhoto,buyerPhoto,chassisPhoto,sellerFront,sellerBack,buyerFront,buyerBack]=await Promise.all([
-   photoUrl(r.seller_photo),photoUrl(r.buyer_photo),photoUrl(r.chassis_photo),
-   photoUrl(r.seller_cnic_front),photoUrl(r.seller_cnic_back),
-   photoUrl(r.buyer_cnic_front),photoUrl(r.buyer_cnic_back)
+   photoUrl(r.seller_photo),
+   photoUrl(r.buyer_photo),
+   photoUrl(r.chassis_photo),
+   photoUrl(r.seller_cnic_front),
+   photoUrl(r.seller_cnic_back),
+   photoUrl(r.buyer_cnic_front),
+   photoUrl(r.buyer_cnic_back)
   ]);
+
   const cars=(Array.isArray(r.car_photos)?r.car_photos:[]).slice(0,3);
   const pic=(url,label)=>url?`<div class="pic"><img src="${esc(url)}"><small>${label}</small></div>`:'';
   const carHTML=cars.map((u,i)=>pic(u,'Vehicle '+(i+1))).join('');
 
   w.document.open();
   w.document.write(`
-<!doctype html><html><head><meta charset="UTF-8"><title>Abdullah Car Mart Invoice</title>
+<!doctype html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Abdullah Car Mart Invoice</title>
 <style>
 *{box-sizing:border-box}
 @page{size:A4 landscape;margin:5mm}
-body{font-family:Arial,sans-serif;color:#182235;margin:0;font-size:8px}
-.header{background:#101827;color:white;padding:6px 10px;border-bottom:3px solid #d6ad55;display:flex;justify-content:space-between;align-items:center}
-.header h1{font-size:17px;color:#d6ad55;margin:0 0 2px}
-.header p{margin:2px 0;font-size:7px}
-#qr{background:white;padding:2px;width:65px;height:65px}
-#qr img,#qr canvas{width:60px!important;height:60px!important}
-.layout{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;margin-top:5px}
-.section{border:1px solid #d9dee6;border-radius:3px;overflow:hidden;break-inside:avoid}
-h3{background:#101827;color:#d6ad55;margin:0;padding:4px 5px;font-size:8px}
-table{width:100%;border-collapse:collapse}
-td{border-bottom:1px solid #e5e8ed;padding:3px 4px;font-size:7px;overflow-wrap:anywhere}
-td:first-child{width:38%;font-weight:bold;background:#f4f5f7}
-.pics{display:flex;flex-wrap:wrap;gap:3px;padding:4px}
-.pic{width:58px;text-align:center}
-.pic img{width:55px;height:43px;object-fit:contain;border:1px solid #bbb;border-radius:2px}
-.pic small{display:block;font-size:6px;margin-top:1px}
-.wide{grid-column:1/-1}
-.sign{display:flex;justify-content:space-between;padding:12px 15px 3px}
-.sign div{width:30%;border-top:1px solid #333;text-align:center;padding-top:3px;font-size:7px}
-.footer{text-align:center;border-top:2px solid #d6ad55;padding:3px;margin-top:3px;font-size:6px}
-.print{text-align:center;padding:5px}
-button{background:#101827;color:white;border:0;border-radius:5px;padding:7px 18px;font-weight:bold}
-@media print{
- .print{display:none}
- body{print-color-adjust:exact;-webkit-print-color-adjust:exact}
+
+html,body{
+ margin:0;
+ padding:0;
+ font-family:Arial,sans-serif;
+ color:#182235;
 }
-</style></head><body>
-<div class="header"><div>
-<h1>ABDULLAH CAR MART</h1><p>VEHICLE SALE & PURCHASE INVOICE</p>
-<p>Date: ${esc(r.transaction_date)} | Record: ${esc(r.id)}</p>
-</div><div id="qr"></div></div>
+
+.page{
+ width:287mm;
+ height:200mm;
+ overflow:hidden;
+ margin:0 auto;
+}
+
+.invoice-content{
+ width:287mm;
+ transform-origin:top left;
+}
+
+.header{
+ background:#101827;
+ color:white;
+ padding:6px 10px;
+ border-bottom:3px solid #d6ad55;
+ display:flex;
+ justify-content:space-between;
+ align-items:center;
+}
+
+.header h1{
+ font-size:17px;
+ color:#d6ad55;
+ margin:0 0 2px;
+}
+
+.header p{
+ margin:2px 0;
+ font-size:7px;
+}
+
+#qr{
+ background:white;
+ padding:2px;
+ width:65px;
+ height:65px;
+}
+
+#qr img,#qr canvas{
+ width:60px!important;
+ height:60px!important;
+}
+
+.layout{
+ display:grid;
+ grid-template-columns:repeat(4,minmax(0,1fr));
+ gap:5px;
+ margin-top:5px;
+}
+
+.section{
+ border:1px solid #d9dee6;
+ border-radius:3px;
+ overflow:hidden;
+ break-inside:avoid;
+}
+
+h3{
+ background:#101827;
+ color:#d6ad55;
+ margin:0;
+ padding:4px 5px;
+ font-size:8px;
+}
+
+table{
+ width:100%;
+ border-collapse:collapse;
+}
+
+td{
+ border-bottom:1px solid #e5e8ed;
+ padding:3px 4px;
+ font-size:7px;
+ overflow-wrap:anywhere;
+}
+
+td:first-child{
+ width:38%;
+ font-weight:bold;
+ background:#f4f5f7;
+}
+
+.pics{
+ display:flex;
+ flex-wrap:wrap;
+ gap:3px;
+ padding:4px;
+}
+
+.pic{
+ width:58px;
+ text-align:center;
+}
+
+.pic img{
+ width:55px;
+ height:43px;
+ object-fit:contain;
+ border:1px solid #bbb;
+ border-radius:2px;
+}
+
+.pic small{
+ display:block;
+ font-size:6px;
+ margin-top:1px;
+}
+
+.wide{grid-column:1/-1}
+
+.sign{
+ display:flex;
+ justify-content:space-between;
+ padding:12px 15px 3px;
+}
+
+.sign div{
+ width:30%;
+ border-top:1px solid #333;
+ text-align:center;
+ padding-top:3px;
+ font-size:7px;
+}
+
+.footer{
+ text-align:center;
+ border-top:2px solid #d6ad55;
+ padding:3px;
+ margin-top:3px;
+ font-size:6px;
+}
+
+.print{
+ text-align:center;
+ padding:8px;
+}
+
+button{
+ background:#101827;
+ color:white;
+ border:0;
+ border-radius:5px;
+ padding:8px 20px;
+ font-weight:bold;
+}
+
+@media print{
+ .print{display:none!important}
+ html,body{
+  margin:0!important;
+  padding:0!important;
+  print-color-adjust:exact;
+  -webkit-print-color-adjust:exact;
+ }
+ .page{
+  margin:0!important;
+  page-break-after:avoid!important;
+  break-after:avoid!important;
+ }
+}
+</style>
+</head>
+<body>
+
+<div class="page">
+<div class="invoice-content">
+
+<div class="header">
+ <div>
+  <h1>ABDULLAH CAR MART</h1>
+  <p>VEHICLE SALE & PURCHASE INVOICE</p>
+  <p>Date: ${esc(r.transaction_date)} | Record: ${esc(r.id)}</p>
+ </div>
+ <div id="qr"></div>
+</div>
+
 <div class="layout">
-<div class="section"><h3>VEHICLE DETAILS</h3><table>
+
+<div class="section">
+<h3>VEHICLE DETAILS</h3>
+<table>
 <tr><td>Transaction</td><td>${esc(r.tx_type)}</td></tr>
 <tr><td>Vehicle</td><td>${esc(r.year)} ${esc(r.make)} ${esc(r.model)}</td></tr>
 <tr><td>Color</td><td>${esc(r.color)}</td></tr>
@@ -476,40 +647,129 @@ button{background:#101827;color:white;border:0;border-radius:5px;padding:7px 18p
 <tr><td>Chassis No.</td><td>${esc(r.chassis_no)}</td></tr>
 <tr><td>Engine No.</td><td>${esc(r.engine_no)}</td></tr>
 <tr><td>Status</td><td>${esc(r.status)}</td></tr>
-</table></div>
-<div class="section"><h3>PAYMENT DETAILS</h3><table>
+</table>
+</div>
+
+<div class="section">
+<h3>PAYMENT DETAILS</h3>
+<table>
 <tr><td>Purchase Price</td><td>PKR ${esc(r.purchase_price)}</td></tr>
 <tr><td>Sale / Demand</td><td>PKR ${esc(r.sale_price)}</td></tr>
 <tr><td>Advance</td><td>PKR ${esc(r.advance)}</td></tr>
-</table><h3>CHASSIS / ENGINE PHOTO</h3><div class="pics">${pic(chassisPhoto,'Chassis / Engine')}</div></div>
+</table>
+<h3>CHASSIS / ENGINE PHOTO</h3>
+<div class="pics">${pic(chassisPhoto,'Chassis / Engine')}</div>
+</div>
 
-<div class="section"><h3>SELLER DETAILS</h3><table>
+<div class="section">
+<h3>SELLER DETAILS</h3>
+<table>
 <tr><td>Name</td><td>${esc(r.seller_name)}</td></tr>
 <tr><td>Father</td><td>${esc(r.seller_father)}</td></tr>
 <tr><td>CNIC</td><td>${esc(r.seller_cnic)}</td></tr>
 <tr><td>Phone</td><td>${esc(r.seller_phone)}</td></tr>
 <tr><td>Address</td><td>${esc(r.seller_address)}</td></tr>
-</table><div class="pics">${pic(sellerPhoto,'Seller Photo')}${pic(sellerFront,'CNIC Front')}${pic(sellerBack,'CNIC Back')}</div></div>
+</table>
+<div class="pics">
+${pic(sellerPhoto,'Seller Photo')}
+${pic(sellerFront,'CNIC Front')}
+${pic(sellerBack,'CNIC Back')}
+</div>
+</div>
 
-<div class="section"><h3>BUYER DETAILS</h3><table>
+<div class="section">
+<h3>BUYER DETAILS</h3>
+<table>
 <tr><td>Name</td><td>${esc(r.buyer_name)}</td></tr>
 <tr><td>Father</td><td>${esc(r.buyer_father)}</td></tr>
 <tr><td>CNIC</td><td>${esc(r.buyer_cnic)}</td></tr>
 <tr><td>Phone</td><td>${esc(r.buyer_phone)}</td></tr>
 <tr><td>Address</td><td>${esc(r.buyer_address)}</td></tr>
-</table><div class="pics">${pic(buyerPhoto,'Buyer Photo')}${pic(buyerFront,'CNIC Front')}${pic(buyerBack,'CNIC Back')}</div></div>
-
-<div class="section wide"><h3>VEHICLE PHOTOS</h3><div class="pics">${carHTML||'No vehicle photos'}</div></div>
-<div class="section wide"><h3>WITNESS / NOTES</h3><div style="padding:7px">${esc(r.notes)}</div></div>
+</table>
+<div class="pics">
+${pic(buyerPhoto,'Buyer Photo')}
+${pic(buyerFront,'CNIC Front')}
+${pic(buyerBack,'CNIC Back')}
 </div>
-<div class="sign"><div>Seller Signature</div><div>Buyer Signature</div></div>
-<div class="footer">ABDULLAH CAR MART • Vehicle Sale & Purchase Record</div>
-<div class="print"><button onclick="window.print()">PRINT INVOICE</button></div>
+</div>
+
+<div class="section wide">
+<h3>VEHICLE PHOTOS</h3>
+<div class="pics">${carHTML||'No vehicle photos'}</div>
+</div>
+
+<div class="section wide">
+<h3>WITNESS / NOTES</h3>
+<div style="padding:7px">${esc(r.notes)}</div>
+</div>
+
+</div>
+
+<div class="sign">
+<div>Seller Signature</div>
+<div>Buyer Signature</div>
+</div>
+
+<div class="footer">
+ABDULLAH CAR MART • Vehicle Sale & Purchase Record
+</div>
+
+</div>
+</div>
+
+<div class="print">
+<button onclick="window.print()">PRINT INVOICE</button>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
+
 <script>
-new QRCode(document.getElementById('qr'),{text:${JSON.stringify(publicUrl(r.id))},width:60,height:60});
-<\/script></body></html>`);
+new QRCode(document.getElementById('qr'),{
+ text:${JSON.stringify(publicUrl(r.id))},
+ width:60,
+ height:60
+});
+
+async function fitInvoice(){
+ const page=document.querySelector('.page');
+ const content=document.querySelector('.invoice-content');
+
+ await Promise.all(
+  Array.from(document.images).map(img=>{
+   if(img.complete)return Promise.resolve();
+   return new Promise(resolve=>{
+    img.onload=resolve;
+    img.onerror=resolve;
+    setTimeout(resolve,3000);
+   });
+  })
+ );
+
+ const availableHeight=page.clientHeight;
+ const availableWidth=page.clientWidth;
+ const contentHeight=content.scrollHeight;
+ const contentWidth=content.scrollWidth;
+
+ const scale=Math.min(
+  1,
+  availableHeight/contentHeight,
+  availableWidth/contentWidth
+ );
+
+ content.style.transform='scale('+scale+')';
+}
+
+window.addEventListener('load',async()=>{
+ await fitInvoice();
+});
+</script>
+
+</body>
+</html>
+`);
+
   w.document.close();
+
  }catch(err){
   w.document.body.innerHTML='<p>Invoice error: '+esc(err.message)+'</p>';
  }
