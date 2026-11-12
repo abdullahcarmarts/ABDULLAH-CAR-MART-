@@ -62,15 +62,15 @@ footer{text-align:center;color:#8791a1;font-size:11px;padding:18px}
 <main>
 <section id="setup" class="card">
  <h2>Connect your online database</h2>
- <p class="muted">Paste your Supabase Project URL and public anon/publishable key.</p>
+ <p class="muted">Database configuration is automatic.</p>
  <div class="grid">
   <div class="full">
    <label>Supabase Project URL</label>
-   <input id="projectUrl" placeholder="https://your-project.supabase.co">
+   <input id="projectUrl" readonly>
   </div>
   <div class="full">
-   <label>Supabase anon / publishable key</label>
-   <textarea id="anonKey" placeholder="Paste your public anon/publishable key"></textarea>
+   <label>Supabase Publishable Key</label>
+   <textarea id="anonKey" readonly></textarea>
   </div>
  </div>
  <div class="actions">
@@ -180,6 +180,9 @@ let sb=null,currentUser=null,allRecords=[];
 
 const $=id=>document.getElementById(id);
 
+const SUPABASE_URL='https://xlvswizjoglzmaojljcl.supabase.co';
+const SUPABASE_KEY='sb_publishable_gPiIk_HZhvy27MXMcBIV2Q_h07NFjP3';
+
 const fields=[
 'tx_type','status','make','model','year','color','registration',
 'mileage','chassis_no','engine_no','purchase_price','sale_price',
@@ -189,10 +192,7 @@ const fields=[
 ];
 
 function cfg(){
- return {
-  url:localStorage.getItem('abcm_url'),
-  key:localStorage.getItem('abcm_key')
- };
+ return {url:SUPABASE_URL,key:SUPABASE_KEY};
 }
 
 function initClient(){
@@ -203,25 +203,12 @@ function initClient(){
 }
 
 async function connect(){
- const u=$('projectUrl').value.trim();
- const k=$('anonKey').value.trim();
-
- if(!u||!k){
-  $('setupMsg').textContent='Please enter both values.';
-  return;
- }
-
  try{
-  localStorage.setItem('abcm_url',u);
-  localStorage.setItem('abcm_key',k);
   initClient();
-
   if(!sb)throw new Error('Supabase client could not initialize.');
-
-  $('setupMsg').textContent='Checking connection...';
+  $('setupMsg').textContent='Checking database connection...';
   const {error}=await sb.auth.getSession();
   if(error)throw error;
-
   $('setupMsg').textContent='Connected successfully.';
   await checkSession();
  }catch(err){
@@ -232,22 +219,18 @@ async function connect(){
 async function checkSession(){
  if(!sb)initClient();
  if(!sb)return;
-
  const {data,error}=await sb.auth.getSession();
  if(error){
   $('loginMsg').textContent=error.message;
   return;
  }
-
  currentUser=data.session?.user||null;
  showState();
-
  if(currentUser)await loadRecords();
 }
 
 function showState(){
  const id=new URLSearchParams(location.search).get('vehicle');
-
  if(id){
   $('setup').classList.add('hidden');
   $('login').classList.add('hidden');
@@ -256,10 +239,9 @@ function showState(){
   loadPublic(id);
   return;
  }
-
  $('publicView').classList.add('hidden');
- $('setup').classList.toggle('hidden',!!sb);
- $('login').classList.toggle('hidden',!sb||!!currentUser);
+ $('setup').classList.add('hidden');
+ $('login').classList.toggle('hidden',!!currentUser);
  $('admin').classList.toggle('hidden',!currentUser);
 }
 
@@ -269,12 +251,10 @@ async function login(){
   $('loginMsg').textContent='Database is not connected.';
   return;
  }
-
  const {error}=await sb.auth.signInWithPassword({
   email:$('email').value.trim(),
   password:$('password').value
  });
-
  $('loginMsg').textContent=error?error.message:'Logged in.';
  if(!error)await checkSession();
 }
@@ -296,18 +276,13 @@ function showPanel(p){
 async function upload(file,folder){
  if(!file)return null;
  if(!currentUser)throw new Error('Admin login required');
-
  const ext=(file.name.split('.').pop()||'jpg').replace(/[^a-z0-9]/gi,'');
  const bucket='vehicle-car-photos';
  const path=currentUser.id+'/'+folder+'/'+crypto.randomUUID()+'.'+ext;
-
  const {error}=await sb.storage.from(bucket).upload(path,file,{
-  upsert:false,
-  contentType:file.type||'image/jpeg'
+  upsert:false,contentType:file.type||'image/jpeg'
  });
-
  if(error)throw new Error('PHOTO UPLOAD FAILED: '+error.message);
-
  const {data}=sb.storage.from(bucket).getPublicUrl(path);
  return data.publicUrl;
 }
@@ -315,49 +290,38 @@ async function upload(file,folder){
 async function submitVehicle(e){
  e.preventDefault();
  if(!currentUser)return;
-
  const btn=$('saveBtn');
  btn.disabled=true;
  btn.textContent='Uploading…';
-
  try{
   const row={};
   fields.forEach(k=>row[k]=$(k).value.trim()||null);
-
   row.car_photos=[];
-
   for(const f of $('car_photos').files){
    const u=await upload(f,'cars');
    if(u)row.car_photos.push(u);
   }
-
   row.chassis_photo=await upload($('chassis_photo').files[0],'chassis');
   row.seller_photo=await upload($('seller_photo').files[0],'sellers');
   row.buyer_photo=await upload($('buyer_photo').files[0],'buyers');
-
   row.seller_cnic_front=await upload($('seller_cnic_front').files[0],'seller-cnic-front');
   row.seller_cnic_back=await upload($('seller_cnic_back').files[0],'seller-cnic-back');
   row.buyer_cnic_front=await upload($('buyer_cnic_front').files[0],'buyer-cnic-front');
   row.buyer_cnic_back=await upload($('buyer_cnic_back').files[0],'buyer-cnic-back');
 
   const {data:{user},error:authError}=await sb.auth.getUser();
-
   if(authError)throw authError;
   if(!user)throw new Error('Admin login session missing');
-
   row.created_by=user.id;
 
   const {data,error}=await sb.from('vehicles').insert(row).select().single();
-
   if(error)throw new Error('DATABASE SAVE FAILED: '+error.message);
 
   alert('Record saved successfully. Vehicle QR is ready.');
-
   $('vehicleForm').reset();
   await loadRecords();
   showPanel('records');
   makeQR(data);
-
  }catch(err){
   alert('Could not save: '+err.message);
  }finally{
@@ -370,28 +334,20 @@ $('vehicleForm').addEventListener('submit',submitVehicle);
 
 async function loadRecords(){
  if(!sb||!currentUser)return;
-
- const {data,error}=await sb.from('vehicles')
-  .select('*')
-  .order('created_at',{ascending:false});
-
+ const {data,error}=await sb.from('vehicles').select('*').order('created_at',{ascending:false});
  if(error){
   alert('Could not load records: '+error.message);
   return;
  }
-
  allRecords=data||[];
  renderRecords();
 }
 
 function renderRecords(){
  const q=($('search')?.value||'').toLowerCase();
-
  const arr=allRecords.filter(r=>
-  [r.make,r.model,r.registration,r.buyer_name,r.seller_name]
-  .join(' ').toLowerCase().includes(q)
+  [r.make,r.model,r.registration,r.buyer_name,r.seller_name].join(' ').toLowerCase().includes(q)
  );
-
  $('records').innerHTML=arr.length?arr.map(r=>`
   <div class="record">
    <div class="vehicle">
@@ -402,9 +358,7 @@ function renderRecords(){
     </div>
     <span class="pill">${esc(r.status)}</span>
    </div>
-   <div class="thumbs">
-    ${(r.car_photos||[]).slice(0,4).map(u=>`<img class="thumb" src="${esc(u)}">`).join('')}
-   </div>
+   <div class="thumbs">${(r.car_photos||[]).slice(0,4).map(u=>`<img class="thumb" src="${esc(u)}">`).join('')}</div>
    <div class="actions">
     <button class="primary" onclick="makeQRById('${r.id}')">QR / Print</button>
     <button class="secondary" onclick="printInvoice('${r.id}')">Print Invoice</button>
@@ -417,11 +371,7 @@ function renderRecords(){
 
 function esc(v){
  return String(v??'').replace(/[&<>"']/g,c=>({
-  '&':'&amp;',
-  '<':'&lt;',
-  '>':'&gt;',
-  '"':'&quot;',
-  "'":'&#39;'
+  '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
  }[c]));
 }
 
@@ -436,14 +386,9 @@ function makeQRById(id){
 
 function makeQR(r){
  const w=window.open('','_blank');
- if(!w){
-  alert('Allow popups to print QR.');
-  return;
- }
-
+ if(!w){alert('Allow popups to print QR.');return;}
  w.document.write(`
-  <!doctype html>
-  <html><head><title>Vehicle QR - Abdullah Car Mart</title></head>
+  <!doctype html><html><head><title>Vehicle QR - Abdullah Car Mart</title></head>
   <body style="font-family:Arial;text-align:center;padding:24px">
    <h2>ABDULLAH CAR MART</h2>
    <p>${esc(r.year)} ${esc(r.make)} ${esc(r.model)}</p>
@@ -452,78 +397,41 @@ function makeQR(r){
    <p>${esc(r.registration||'')}</p>
    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
    <script>
-    new QRCode(document.getElementById('qr'),{
-     text:${JSON.stringify(publicUrl(r.id))},
-     width:260,
-     height:260
-    });
+    new QRCode(document.getElementById('qr'),{text:${JSON.stringify(publicUrl(r.id))},width:260,height:260});
     setTimeout(()=>window.print(),900);
    <\/script>
   </body></html>
  `);
-
  w.document.close();
 }
 
-/* COMPLETE INVOICE FUNCTION */
 async function printInvoice(id){
  const r=allRecords.find(x=>x.id===id);
- if(!r){
-  alert('Vehicle record not found');
-  return;
- }
-
+ if(!r){alert('Vehicle record not found');return;}
  const w=window.open('','_blank');
- if(!w){
-  alert('Please allow pop-ups');
-  return;
- }
-
+ if(!w){alert('Please allow pop-ups');return;}
  w.document.write('<p style="font-family:Arial">Preparing invoice...</p>');
 
  async function photoUrl(v){
   if(!v)return '';
   if(/^https?:\/\//i.test(v))return v;
-
-  const {data,error}=await sb.storage
-   .from('vehicle-private-files')
-   .createSignedUrl(v,300);
-
+  const {data,error}=await sb.storage.from('vehicle-private-files').createSignedUrl(v,300);
   return error?'':(data?.signedUrl||'');
  }
 
  try{
-  const [
-   sellerPhoto,buyerPhoto,chassisPhoto,
-   sellerFront,sellerBack,buyerFront,buyerBack
-  ]=await Promise.all([
-   photoUrl(r.seller_photo),
-   photoUrl(r.buyer_photo),
-   photoUrl(r.chassis_photo),
-   photoUrl(r.seller_cnic_front),
-   photoUrl(r.seller_cnic_back),
-   photoUrl(r.buyer_cnic_front),
-   photoUrl(r.buyer_cnic_back)
+  const [sellerPhoto,buyerPhoto,chassisPhoto,sellerFront,sellerBack,buyerFront,buyerBack]=await Promise.all([
+   photoUrl(r.seller_photo),photoUrl(r.buyer_photo),photoUrl(r.chassis_photo),
+   photoUrl(r.seller_cnic_front),photoUrl(r.seller_cnic_back),
+   photoUrl(r.buyer_cnic_front),photoUrl(r.buyer_cnic_back)
   ]);
-
   const cars=(Array.isArray(r.car_photos)?r.car_photos:[]).slice(0,3);
-
-  const pic=(url,label)=>url?`
-   <div class="pic">
-    <img src="${esc(url)}">
-    <small>${label}</small>
-   </div>
-  `:'';
-
+  const pic=(url,label)=>url?`<div class="pic"><img src="${esc(url)}"><small>${label}</small></div>`:'';
   const carHTML=cars.map((u,i)=>pic(u,'Vehicle '+(i+1))).join('');
 
   w.document.open();
   w.document.write(`
-<!doctype html>
-<html>
-<head>
-<meta charset="UTF-8">
-<title>Abdullah Car Mart Invoice</title>
+<!doctype html><html><head><meta charset="UTF-8"><title>Abdullah Car Mart Invoice</title>
 <style>
 *{box-sizing:border-box}
 @page{size:A4 portrait;margin:7mm}
@@ -549,169 +457,89 @@ td:first-child{width:38%;font-weight:bold;background:#f4f5f7}
 .footer{text-align:center;border-top:2px solid #d6ad55;padding:5px;margin-top:5px;font-size:7px}
 .print{text-align:center;padding:8px}
 button{background:#101827;color:white;border:0;border-radius:5px;padding:8px 20px;font-weight:bold}
-@media print{
- .print{display:none}
- body{print-color-adjust:exact;-webkit-print-color-adjust:exact}
-}
-</style>
-</head>
-<body>
-
-<div class="header">
- <div>
-  <h1>ABDULLAH CAR MART</h1>
-  <p>VEHICLE SALE & PURCHASE INVOICE</p>
-  <p>Date: ${esc(r.transaction_date)} | Record: ${esc(r.id)}</p>
- </div>
- <div id="qr"></div>
-</div>
-
+@media print{.print{display:none}body{print-color-adjust:exact;-webkit-print-color-adjust:exact}}
+</style></head><body>
+<div class="header"><div>
+<h1>ABDULLAH CAR MART</h1><p>VEHICLE SALE & PURCHASE INVOICE</p>
+<p>Date: ${esc(r.transaction_date)} | Record: ${esc(r.id)}</p>
+</div><div id="qr"></div></div>
 <div class="layout">
+<div class="section"><h3>VEHICLE DETAILS</h3><table>
+<tr><td>Transaction</td><td>${esc(r.tx_type)}</td></tr>
+<tr><td>Vehicle</td><td>${esc(r.year)} ${esc(r.make)} ${esc(r.model)}</td></tr>
+<tr><td>Color</td><td>${esc(r.color)}</td></tr>
+<tr><td>Registration</td><td>${esc(r.registration)}</td></tr>
+<tr><td>Mileage</td><td>${esc(r.mileage)} KM</td></tr>
+<tr><td>Chassis No.</td><td>${esc(r.chassis_no)}</td></tr>
+<tr><td>Engine No.</td><td>${esc(r.engine_no)}</td></tr>
+<tr><td>Status</td><td>${esc(r.status)}</td></tr>
+</table></div>
+<div class="section"><h3>PAYMENT DETAILS</h3><table>
+<tr><td>Purchase Price</td><td>PKR ${esc(r.purchase_price)}</td></tr>
+<tr><td>Sale / Demand</td><td>PKR ${esc(r.sale_price)}</td></tr>
+<tr><td>Advance</td><td>PKR ${esc(r.advance)}</td></tr>
+</table><h3>CHASSIS / ENGINE PHOTO</h3><div class="pics">${pic(chassisPhoto,'Chassis / Engine')}</div></div>
 
- <div class="section">
-  <h3>VEHICLE DETAILS</h3>
-  <table>
-   <tr><td>Transaction</td><td>${esc(r.tx_type)}</td></tr>
-   <tr><td>Vehicle</td><td>${esc(r.year)} ${esc(r.make)} ${esc(r.model)}</td></tr>
-   <tr><td>Color</td><td>${esc(r.color)}</td></tr>
-   <tr><td>Registration</td><td>${esc(r.registration)}</td></tr>
-   <tr><td>Mileage</td><td>${esc(r.mileage)} KM</td></tr>
-   <tr><td>Chassis No.</td><td>${esc(r.chassis_no)}</td></tr>
-   <tr><td>Engine No.</td><td>${esc(r.engine_no)}</td></tr>
-   <tr><td>Status</td><td>${esc(r.status)}</td></tr>
-  </table>
- </div>
+<div class="section"><h3>SELLER DETAILS</h3><table>
+<tr><td>Name</td><td>${esc(r.seller_name)}</td></tr>
+<tr><td>Father</td><td>${esc(r.seller_father)}</td></tr>
+<tr><td>CNIC</td><td>${esc(r.seller_cnic)}</td></tr>
+<tr><td>Phone</td><td>${esc(r.seller_phone)}</td></tr>
+<tr><td>Address</td><td>${esc(r.seller_address)}</td></tr>
+</table><div class="pics">${pic(sellerPhoto,'Seller Photo')}${pic(sellerFront,'CNIC Front')}${pic(sellerBack,'CNIC Back')}</div></div>
 
- <div class="section">
-  <h3>PAYMENT DETAILS</h3>
-  <table>
-   <tr><td>Purchase Price</td><td>PKR ${esc(r.purchase_price)}</td></tr>
-   <tr><td>Sale / Demand</td><td>PKR ${esc(r.sale_price)}</td></tr>
-   <tr><td>Advance</td><td>PKR ${esc(r.advance)}</td></tr>
-  </table>
-  <h3>CHASSIS / ENGINE PHOTO</h3>
-  <div class="pics">${pic(chassisPhoto,'Chassis / Engine')}</div>
- </div>
+<div class="section"><h3>BUYER DETAILS</h3><table>
+<tr><td>Name</td><td>${esc(r.buyer_name)}</td></tr>
+<tr><td>Father</td><td>${esc(r.buyer_father)}</td></tr>
+<tr><td>CNIC</td><td>${esc(r.buyer_cnic)}</td></tr>
+<tr><td>Phone</td><td>${esc(r.buyer_phone)}</td></tr>
+<tr><td>Address</td><td>${esc(r.buyer_address)}</td></tr>
+</table><div class="pics">${pic(buyerPhoto,'Buyer Photo')}${pic(buyerFront,'CNIC Front')}${pic(buyerBack,'CNIC Back')}</div></div>
 
- <div class="section">
-  <h3>SELLER DETAILS</h3>
-  <table>
-   <tr><td>Name</td><td>${esc(r.seller_name)}</td></tr>
-   <tr><td>Father</td><td>${esc(r.seller_father)}</td></tr>
-   <tr><td>CNIC</td><td>${esc(r.seller_cnic)}</td></tr>
-   <tr><td>Phone</td><td>${esc(r.seller_phone)}</td></tr>
-   <tr><td>Address</td><td>${esc(r.seller_address)}</td></tr>
-  </table>
-  <div class="pics">
-   ${pic(sellerPhoto,'Seller Photo')}
-   ${pic(sellerFront,'CNIC Front')}
-   ${pic(sellerBack,'CNIC Back')}
-  </div>
- </div>
-
- <div class="section">
-  <h3>BUYER DETAILS</h3>
-  <table>
-   <tr><td>Name</td><td>${esc(r.buyer_name)}</td></tr>
-   <tr><td>Father</td><td>${esc(r.buyer_father)}</td></tr>
-   <tr><td>CNIC</td><td>${esc(r.buyer_cnic)}</td></tr>
-   <tr><td>Phone</td><td>${esc(r.buyer_phone)}</td></tr>
-   <tr><td>Address</td><td>${esc(r.buyer_address)}</td></tr>
-  </table>
-  <div class="pics">
-   ${pic(buyerPhoto,'Buyer Photo')}
-   ${pic(buyerFront,'CNIC Front')}
-   ${pic(buyerBack,'CNIC Back')}
-  </div>
- </div>
-
- <div class="section wide">
-  <h3>VEHICLE PHOTOS</h3>
-  <div class="pics">${carHTML||'No vehicle photos'}</div>
- </div>
-
- <div class="section wide">
-  <h3>WITNESS / NOTES</h3>
-  <div style="padding:7px">${esc(r.notes)}</div>
- </div>
-
+<div class="section wide"><h3>VEHICLE PHOTOS</h3><div class="pics">${carHTML||'No vehicle photos'}</div></div>
+<div class="section wide"><h3>WITNESS / NOTES</h3><div style="padding:7px">${esc(r.notes)}</div></div>
 </div>
-
-<div class="sign">
- <div>Seller Signature</div>
- <div>Buyer Signature</div>
-</div>
-
+<div class="sign"><div>Seller Signature</div><div>Buyer Signature</div></div>
 <div class="footer">ABDULLAH CAR MART • Vehicle Sale & Purchase Record</div>
-
-<div class="print">
- <button onclick="window.print()">PRINT INVOICE</button>
-</div>
-
+<div class="print"><button onclick="window.print()">PRINT INVOICE</button></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
 <script>
- new QRCode(document.getElementById('qr'),{
-  text:${JSON.stringify(publicUrl(r.id))},
-  width:68,
-  height:68
- });
-<\/script>
-</body>
-</html>
-  `);
-
+new QRCode(document.getElementById('qr'),{text:${JSON.stringify(publicUrl(r.id))},width:68,height:68});
+<\/script></body></html>`);
   w.document.close();
-
  }catch(err){
   w.document.body.innerHTML='<p>Invoice error: '+esc(err.message)+'</p>';
  }
 }
 
-function openPublic(id){
- window.open(publicUrl(id),'_blank');
-}
+function openPublic(id){window.open(publicUrl(id),'_blank');}
 
 async function deleteRecord(id){
  if(!confirm('Permanently delete this vehicle record?'))return;
-
  const {error}=await sb.from('vehicles').delete().eq('id',id);
-
  if(error)alert(error.message);
  else await loadRecords();
 }
 
 async function loadPublic(id){
  if(!sb)initClient();
-
  if(!sb){
   $('publicCard').innerHTML='<h2>Vehicle Verification</h2><p>Database configuration required.</p>';
   return;
  }
-
- const {data:r,error}=await sb.from('vehicle_qr_public')
-  .select('*')
-  .eq('id',id)
-  .single();
-
+ const {data:r,error}=await sb.from('vehicle_qr_public').select('*').eq('id',id).single();
  if(error||!r){
-  $('publicCard').innerHTML='<h2>Record not found</h2><p>This QR may be invalid or unavailable.</p>';
+  $('publicCard').innerHTML='<h2>Record not found</h2><p>This QR may be invalid or unavailable. '+esc(error?.message||'')+'</p>';
   return;
  }
-
- const photo=(u,alt)=>u?
-  `<img src="${esc(u)}" alt="${alt}" loading="lazy">`:'';
-
- const cars=(r.car_photos||[])
-  .map(u=>photo(u,'Vehicle photo')).join('');
-
+ const photo=(u,alt)=>u?`<img src="${esc(u)}" alt="${alt}" loading="lazy">`:'';
+ const cars=(r.car_photos||[]).map(u=>photo(u,'Vehicle photo')).join('');
  $('publicCard').innerHTML=`
   <h2>ABDULLAH CAR MART — Vehicle Verification</h2>
   <h3>${esc(r.year)} ${esc(r.make)} ${esc(r.model)}</h3>
   <span class="pill">${esc(r.status)}</span>
-
   <h3>VEHICLE PHOTOS</h3>
   <div class="photoGrid">${cars||'No vehicle photos'}</div>
-
   <div class="publicdata">
    <h3>VEHICLE DETAILS</h3>
    <b>Registration:</b> ${esc(r.registration)}<br>
@@ -720,43 +548,30 @@ async function loadPublic(id){
    <b>Sale / Demand Price:</b> PKR ${esc(r.sale_price)}<br>
    <b>Transaction:</b> ${esc(r.tx_type)} — ${esc(r.transaction_date)}
   </div>
-
   <h3>SELLER INFORMATION</h3>
   <p><b>Name:</b> ${esc(r.seller_name)}</p>
-  <div class="photoGrid">
-   ${photo(r.seller_photo,'Seller photo')}
-   ${photo(r.seller_cnic_front,'Seller CNIC Front')}
-   ${photo(r.seller_cnic_back,'Seller CNIC Back')}
-  </div>
-
+  <div class="photoGrid">${photo(r.seller_photo,'Seller photo')}${photo(r.seller_cnic_front,'Seller CNIC Front')}${photo(r.seller_cnic_back,'Seller CNIC Back')}</div>
   <h3>BUYER INFORMATION</h3>
   <p><b>Name:</b> ${esc(r.buyer_name)}</p>
-  <div class="photoGrid">
-   ${photo(r.buyer_photo,'Buyer photo')}
-   ${photo(r.buyer_cnic_front,'Buyer CNIC Front')}
-   ${photo(r.buyer_cnic_back,'Buyer CNIC Back')}
-  </div>
-
-  <p class="muted">
-   Public QR verification record. Buyer/seller ID images are publicly visible.<br>
-   Record ID: ${esc(r.id)} • Created: ${esc(r.created_at)}
-  </p>
+  <div class="photoGrid">${photo(r.buyer_photo,'Buyer photo')}${photo(r.buyer_cnic_front,'Buyer CNIC Front')}${photo(r.buyer_cnic_back,'Buyer CNIC Back')}</div>
+  <p class="muted">Public QR verification record. Buyer/seller ID images are publicly visible.<br>Record ID: ${esc(r.id)} • Created: ${esc(r.created_at)}</p>
  `;
 }
 
 (async()=>{
- const params=new URLSearchParams(location.search);
+ $('projectUrl').value=SUPABASE_URL;
+ $('anonKey').value=SUPABASE_KEY;
  initClient();
-
+ if(!sb){
+  $('setup').classList.remove('hidden');
+  $('setupMsg').textContent='Supabase client could not initialize. Check internet connection.';
+  return;
+ }
+ const params=new URLSearchParams(location.search);
  if(params.get('vehicle')){
   showState();
- }else if(sb){
-  await checkSession();
  }else{
-  showState();
-  const c=cfg();
-  if(c.url)$('projectUrl').value=c.url;
-  if(c.key)$('anonKey').value=c.key;
+  await checkSession();
  }
 })();
 </script>
