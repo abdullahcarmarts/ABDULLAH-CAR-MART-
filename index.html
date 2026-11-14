@@ -151,7 +151,7 @@ footer{text-align:center;color:#8791a1;font-size:11px;padding:18px}
     <button class="primary" type="submit" id="saveBtn">Save Record & Upload Photos</button>
     <button class="secondary" type="reset">Clear Form</button>
    </div>
-   <p class="muted">Important: QR visitors can see vehicle details, car photos, buyer/seller names, photos and CNIC images. Do not upload ID images unless you want them publicly visible.</p>
+   <p class="muted">Personal buyer/seller details and CNIC images should only be accessible to authorized admins.</p>
   </form>
  </section>
 
@@ -417,7 +417,6 @@ async function printInvoice(id){
  async function photoUrl(v){
   if(!v)return '';
   if(/^https?:\/\//i.test(v))return v;
-
   const {data,error}=await sb.storage.from('vehicle-private-files').createSignedUrl(v,300);
   return error?'':(data?.signedUrl||'');
  }
@@ -446,7 +445,7 @@ async function printInvoice(id){
 <title>Abdullah Car Mart Invoice</title>
 <style>
 *{box-sizing:border-box}
-@page{size:A4 landscape;margin:5mm}
+@page{size:A4 portrait;margin:5mm}
 
 html,body{
  margin:0;
@@ -456,21 +455,24 @@ html,body{
 }
 
 .page{
- width:287mm;
- height:200mm;
+ width:200mm;
+ height:287mm;
  overflow:hidden;
  margin:0 auto;
 }
 
 .invoice-content{
- width:287mm;
+ width:200mm;
+ height:287mm;
+ display:flex;
+ flex-direction:column;
  transform-origin:top left;
 }
 
 .header{
  background:#101827;
  color:white;
- padding:6px 10px;
+ padding:9px 12px;
  border-bottom:3px solid #d6ad55;
  display:flex;
  justify-content:space-between;
@@ -478,21 +480,22 @@ html,body{
 }
 
 .header h1{
- font-size:17px;
+ font-size:19px;
  color:#d6ad55;
- margin:0 0 2px;
+ margin:0 0 3px;
 }
 
 .header p{
- margin:2px 0;
- font-size:7px;
+ margin:3px 0;
+ font-size:9px;
 }
 
 #qr{
  background:white;
- padding:2px;
- width:65px;
- height:65px;
+ padding:3px;
+ width:66px;
+ height:66px;
+ flex-shrink:0;
 }
 
 #qr img,#qr canvas{
@@ -502,14 +505,14 @@ html,body{
 
 .layout{
  display:grid;
- grid-template-columns:repeat(4,minmax(0,1fr));
- gap:5px;
- margin-top:5px;
+ grid-template-columns:repeat(2,minmax(0,1fr));
+ gap:7px;
+ margin-top:7px;
 }
 
 .section{
  border:1px solid #d9dee6;
- border-radius:3px;
+ border-radius:4px;
  overflow:hidden;
  break-inside:avoid;
 }
@@ -518,8 +521,8 @@ h3{
  background:#101827;
  color:#d6ad55;
  margin:0;
- padding:4px 5px;
- font-size:8px;
+ padding:6px 7px;
+ font-size:10px;
 }
 
 table{
@@ -529,8 +532,8 @@ table{
 
 td{
  border-bottom:1px solid #e5e8ed;
- padding:3px 4px;
- font-size:7px;
+ padding:5px 6px;
+ font-size:9px;
  overflow-wrap:anywhere;
 }
 
@@ -543,18 +546,18 @@ td:first-child{
 .pics{
  display:flex;
  flex-wrap:wrap;
- gap:3px;
- padding:4px;
+ gap:5px;
+ padding:6px;
 }
 
 .pic{
- width:58px;
+ width:70px;
  text-align:center;
 }
 
 .pic img{
- width:55px;
- height:43px;
+ width:66px;
+ height:50px;
  object-fit:contain;
  border:1px solid #bbb;
  border-radius:2px;
@@ -562,8 +565,8 @@ td:first-child{
 
 .pic small{
  display:block;
- font-size:6px;
- margin-top:1px;
+ font-size:7px;
+ margin-top:2px;
 }
 
 .wide{grid-column:1/-1}
@@ -571,28 +574,29 @@ td:first-child{
 .sign{
  display:flex;
  justify-content:space-between;
- padding:12px 15px 3px;
+ padding:12px 18px 5px;
+ margin-top:auto;
 }
 
 .sign div{
  width:30%;
  border-top:1px solid #333;
  text-align:center;
- padding-top:3px;
- font-size:7px;
+ padding-top:4px;
+ font-size:9px;
 }
 
 .footer{
  text-align:center;
  border-top:2px solid #d6ad55;
- padding:3px;
- margin-top:3px;
- font-size:6px;
+ padding:6px;
+ margin-top:5px;
+ font-size:8px;
 }
 
 .print{
  text-align:center;
- padding:8px;
+ padding:10px;
 }
 
 button{
@@ -600,7 +604,7 @@ button{
  color:white;
  border:0;
  border-radius:5px;
- padding:8px 20px;
+ padding:9px 22px;
  font-weight:bold;
 }
 
@@ -700,7 +704,7 @@ ${pic(buyerBack,'CNIC Back')}
 
 <div class="section wide">
 <h3>WITNESS / NOTES</h3>
-<div style="padding:7px">${esc(r.notes)}</div>
+<div style="padding:8px;font-size:9px">${esc(r.notes)}</div>
 </div>
 
 </div>
@@ -708,6 +712,7 @@ ${pic(buyerBack,'CNIC Back')}
 <div class="sign">
 <div>Seller Signature</div>
 <div>Buyer Signature</div>
+<div>Authorized Signature</div>
 </div>
 
 <div class="footer">
@@ -775,7 +780,9 @@ window.addEventListener('load',async()=>{
  }
 }
 
-function openPublic(id){window.open(publicUrl(id),'_blank');}
+function openPublic(id){
+ window.open(publicUrl(id),'_blank');
+}
 
 async function deleteRecord(id){
  if(!confirm('Permanently delete this vehicle record?'))return;
@@ -790,13 +797,17 @@ async function loadPublic(id){
   $('publicCard').innerHTML='<h2>Vehicle Verification</h2><p>Database configuration required.</p>';
   return;
  }
+
  const {data:r,error}=await sb.from('vehicle_qr_public').select('*').eq('id',id).single();
+
  if(error||!r){
   $('publicCard').innerHTML='<h2>Record not found</h2><p>This QR may be invalid or unavailable. '+esc(error?.message||'')+'</p>';
   return;
  }
+
  const photo=(u,alt)=>u?`<img src="${esc(u)}" alt="${alt}" loading="lazy">`:'';
  const cars=(r.car_photos||[]).map(u=>photo(u,'Vehicle photo')).join('');
+
  $('publicCard').innerHTML=`
   <h2>ABDULLAH CAR MART — Vehicle Verification</h2>
   <h3>${esc(r.year)} ${esc(r.make)} ${esc(r.model)}</h3>
@@ -811,13 +822,7 @@ async function loadPublic(id){
    <b>Sale / Demand Price:</b> PKR ${esc(r.sale_price)}<br>
    <b>Transaction:</b> ${esc(r.tx_type)} — ${esc(r.transaction_date)}
   </div>
-  <h3>SELLER INFORMATION</h3>
-  <p><b>Name:</b> ${esc(r.seller_name)}</p>
-  <div class="photoGrid">${photo(r.seller_photo,'Seller photo')}${photo(r.seller_cnic_front,'Seller CNIC Front')}${photo(r.seller_cnic_back,'Seller CNIC Back')}</div>
-  <h3>BUYER INFORMATION</h3>
-  <p><b>Name:</b> ${esc(r.buyer_name)}</p>
-  <div class="photoGrid">${photo(r.buyer_photo,'Buyer photo')}${photo(r.buyer_cnic_front,'Buyer CNIC Front')}${photo(r.buyer_cnic_back,'Buyer CNIC Back')}</div>
-  <p class="muted">Public QR verification record. Buyer/seller ID images are publicly visible.<br>Record ID: ${esc(r.id)} • Created: ${esc(r.created_at)}</p>
+  <p class="muted">Public vehicle verification record.<br>Record ID: ${esc(r.id)}</p>
  `;
 }
 
@@ -825,12 +830,15 @@ async function loadPublic(id){
  $('projectUrl').value=SUPABASE_URL;
  $('anonKey').value=SUPABASE_KEY;
  initClient();
+
  if(!sb){
   $('setup').classList.remove('hidden');
   $('setupMsg').textContent='Supabase client could not initialize. Check internet connection.';
   return;
  }
+
  const params=new URLSearchParams(location.search);
+
  if(params.get('vehicle')){
   showState();
  }else{
